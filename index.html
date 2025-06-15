@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Global Weather App</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    body {
+      background: linear-gradient(135deg, #a1c4fd, #c2e9fb);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .container {
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 25px;
+      color: #004e92;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 16px;
+      border: 2px solid #4facfe;
+      border-radius: 10px;
+      margin-bottom: 15px;
+    }
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 12px;
+      background: linear-gradient(to right, #43e97b, #38f9d7);
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    .weather-box {
+      background: #f5f9ff;
+      border: 1px solid #cde2ff;
+      padding: 20px;
+      border-radius: 12px;
+      color: #2c3e50;
+    }
+    .weather-box img {
+      margin-top: 12px;
+      width: 80px;
+    }
+    .forecast-day {
+      background: #d0f0fd;
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 10px;
+    }
+    .forecast-day img {
+      width: 50px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🌦️ Global Weather App</h1>
+    <input type="text" id="cityInput" list="suggestions" placeholder="Enter city, state, or country" />
+    <datalist id="suggestions"></datalist>
+    <div class="btn-group">
+      <button onclick="getWeather()">Get Weather</button>
+      <button onclick="getLocationWeather()">Use My Location 🌍</button>
+      <button onclick="getFiveDayForecast()">5-Day Forecast ☀️</button>
+    </div>
+    <div id="weatherResult" class="weather-box"></div>
+  </div>
+  <script>
+    const apiKey = 'adc58949a69656c0ad22902059c85e56';
+    document.getElementById('cityInput').addEventListener('input', async function () {
+      const query = this.value;
+      if (query.length < 2) return;
+      const url = `https://geodb-free-service.wirefreethought.com/v1/geo/cities?limit=5&namePrefix=${query}`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const datalist = document.getElementById('suggestions');
+        datalist.innerHTML = '';
+        data.data.forEach(city => {
+          const option = document.createElement('option');
+          option.value = `${city.city}, ${city.countryCode}`;
+          datalist.appendChild(option);
+        });
+      } catch (error) {
+        console.log('Autocomplete error:', error);
+      }
+    });
+    async function getWeather() {
+      const location = document.getElementById('cityInput').value.trim();
+      if (location === "") {
+        document.getElementById('weatherResult').innerHTML = `<p style="color:red;">⚠️ Please enter a location</p>`;
+        return;
+      }
+      const url = `https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&appid=${apiKey}`;
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Location not found");
+        const data = await response.json();
+        const result = `
+          <h2>${data.name}, ${data.sys.country}</h2>
+          <p>🌡️ Temperature: ${data.main.temp} °C</p>
+          <p>🌥️ Condition: ${data.weather[0].main}</p>
+          <img src="https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png" alt="Weather icon">
+        `;
+        document.getElementById('weatherResult').innerHTML = result;
+      } catch (error) {
+        document.getElementById('weatherResult').innerHTML = `<p style="color:red;">❌ ${error.message}</p>`;
+      }
+    }
+    async function getLocationWeather() {
+      if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude, longitude } = position.coords;
+        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&appid=${apiKey}`;
+        try {
+          const response = await fetch(url);
+          const data = await response.json();
+          const result = `
+            <h2>${data.name}, ${data.sys.country}</h2>
+            <p>🌡️ Temperature: ${data.main.temp} °C</p>
+            <p>🌥️ Condition: ${data.weather[0].main}</p>
+            <img src="https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png" alt="Weather icon">
+          `;
+          document.getElementById('weatherResult').innerHTML = result;
+        } catch (error) {
+          document.getElementById('weatherResult').innerHTML = `<p style="color:red;">❌ Error fetching weather</p>`;
+        }
+      }, () => {
+        alert("Unable to retrieve your location");
+      });
+    }
+    async function getFiveDayForecast() {
+      const city = document.getElementById('cityInput').value.trim();
+      if (city === "") return;
+      const url = `https://api.openweathermap.org/data/2.5/forecast?q=${city}&units=metric&appid=${apiKey}`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        let output = `<h2>5-Day Forecast for ${data.city.name}, ${data.city.country}</h2>`;
+        for (let i = 0; i < data.list.length; i += 8) {
+          const item = data.list[i];
+          output += `
+            <div class="forecast-day">
+              <strong>${new Date(item.dt_txt).toDateString()}</strong>
+              <p>🌡️ Temp: ${item.main.temp} °C</p>
+              <p>${item.weather[0].main}</p>
+              <img src="https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png">
+            </div>
+          `;
+        }
+        document.getElementById('weatherResult').innerHTML = output;
+      } catch (err) {
+        document.getElementById('weatherResult').innerHTML = `<p style="color:red;">❌ Forecast error</p>`;
+      }
+    }
+  </script>
+</body>
+</html>
